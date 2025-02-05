@@ -7,7 +7,12 @@ import (
 )
 
 func main() {
-	router := routes.NewRouter()
+
+	store := make(map[string]string)
+
+	server := &routes.Server{DataStore: store}
+
+	router := server.NewRouter()
 
 	fmt.Println("Server is listening")
 	err := http.ListenAndServe(":8080", router)
