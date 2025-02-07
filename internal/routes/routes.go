@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -28,6 +29,10 @@ func (s *Server) NewRouter() http.Handler {
 }
 
 func (s *Server) apiShortenLink(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
 		return
@@ -52,8 +57,9 @@ func (s *Server) apiShortenLink(w http.ResponseWriter, r *http.Request) {
 		s.saveShortLink(shortURL, string(body))
 	}
 
-	response := fmt.Sprintf("Shortened link: %s", shortURL)
-	fmt.Fprintln(w, response)
+	response := map[string]string{"shortened_link": shortURL}
+	json.NewEncoder(w).Encode(response)
+
 }
 
 func (s *Server) saveShortLink(short string, long string) {
@@ -67,7 +73,7 @@ func shortenURL() string {
 	return RandString(5)
 }
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyz1234567890"
+const letterBytes = "bcdfghijklmnpqrstvwxyz1234567890"
 
 func RandString(n int) string {
 	b := make([]byte, n)
@@ -84,7 +90,9 @@ func (s *Server) redirectPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	linkStruct.clickStatistics++
+	go func() {
+		linkStruct.clickStatistics++
+	}()
 
 	link := linkStruct.LongLink
 	if !strings.HasPrefix(link, "http://") && !strings.HasPrefix(link, "https://") {

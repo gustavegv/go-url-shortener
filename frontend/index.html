@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <link href="https://fonts.googleapis.com/css?family=Karantina&display=swap" rel="stylesheet" />
+        <link href="./css/main.css" rel="stylesheet" />
+        <title>GoURL</title>
+        <link rel="icon" href="/frontend/images/favicon.ico">
+    </head>
+    <body>
+        <div class="main">
+            <span class="title">GoURL</span>
+            <div class="io_container">
+                <div id="output" onclick="redirectOutput()" style="visibility: hidden;">output</div>
+                <input type="url" name="url" placeholder="example.com" id="url_ipt"  class="input">
+            </div>
+            
+            <div class="go_btn_container" id="go_btn" onclick="shortenInput()">
+                <div class="btn_fill"></div>
+                <span class="btn_txt">Go!</span>
+            </div>
+
+            <span class="credits">A GoLang project by Gustav Engvall</span>
+
+            <div class="github"></div>
+            <div class="name"></div>
+            <div class="v3_24"></div>
+        </div>
+    </body>
+    <script>
+        var trimmedLink = "localhost:8080/"
+        var apiLink = "http://" + trimmedLink
+
+        function failedAPICall(){
+            throw new Error("Network response was not ok");
+        }
+
+        function successAPICall(){
+            document.getElementById('go_btn').style.visibility = "hidden"
+            document.getElementById('url_ipt').style.visibility = "hidden"
+            document.getElementById('output').style.visibility = "visible"
+
+
+        }
+
+        function getInput(){
+            return document.getElementById('url_ipt').value
+        }
+
+        function redirectOutput(){
+            url = "http://" + document.getElementById("output").innerText
+            window.open(url, '_blank').focus();
+        }
+
+        function shortenInput(){
+
+            var link = getInput()
+
+            fetch(apiLink + "api/shorten", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "text/plain"
+                },
+                body: link // Inputted URL
+            })
+            .then(response => response.json())
+            .then(data => {
+                successAPICall()
+                console.log("Shortened URL:", data.shortened_link);
+                document.getElementById("output").innerText = trimmedLink + data.shortened_link;
+            })
+        }
+
+
+    </script>
+</html>
