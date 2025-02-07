@@ -5,29 +5,26 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"strings"
 )
 
 type Server struct {
-	DataStore map[string]string
+	DataStore map[string]*SavedLinks
+}
+
+type SavedLinks struct {
+	LongLink        string
+	clickStatistics int
 }
 
 func (s *Server) NewRouter() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", indexHandler)
-	mux.HandleFunc("/api/data", apiDataHandler)
 	mux.HandleFunc("/api/shorten", s.apiShortenLink)
+	mux.HandleFunc("/stats/", s.getLinkStatistics)
+	mux.HandleFunc("/", s.redirectPage)
 
 	return mux
-}
-
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Welcome!")
-}
-
-func apiDataHandler(w http.ResponseWriter, r *http.Request) {
-	data := "Data..."
-	fmt.Fprintln(w, data)
 }
 
 func (s *Server) apiShortenLink(w http.ResponseWriter, r *http.Request) {
@@ -41,16 +38,29 @@ func (s *Server) apiShortenLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortLink, exists := s.DataStore[string(body)]
+	var shortURL string
 
-	if !exists {
-		shortLink = shortenURL()
-		s.DataStore[string(body)] = shortLink
+	for shortenedURL, savedLink := range s.DataStore {
+		if savedLink.LongLink == string(body) {
+			shortURL = shortenedURL
+			break
+		}
 	}
 
-	response := fmt.Sprintf("Shortened link: %s", shortLink)
+	if shortURL == "" {
+		shortURL = shortenURL()
+		s.saveShortLink(shortURL, string(body))
+	}
 
+	response := fmt.Sprintf("Shortened link: %s", shortURL)
 	fmt.Fprintln(w, response)
+}
+
+func (s *Server) saveShortLink(short string, long string) {
+	s.DataStore[short] = &SavedLinks{
+		LongLink:        long,
+		clickStatistics: 0,
+	}
 }
 
 func shortenURL() string {
@@ -65,4 +75,49 @@ func RandString(n int) string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+func (s *Server) redirectPage(w http.ResponseWriter, r *http.Request) {
+	found, linkStruct := s.lookupShortLink(r.URL.Path[1:])
+
+	if !found {
+		return
+	}
+
+	linkStruct.clickStatistics++
+
+	link := linkStruct.LongLink
+	if !strings.HasPrefix(link, "http://") && !strings.HasPrefix(link, "https://") {
+		link = "https://" + link // Default to HTTPS
+	}
+
+	http.Redirect(w, r, link, http.StatusFound)
+}
+
+func (s *Server) getLinkStatistics(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	shortCode := strings.TrimPrefix(path, "/stats/") // Isolate shortend link
+
+	found, linkStruct := s.lookupShortLink(shortCode)
+
+	if !found {
+		return
+	}
+
+	response := fmt.Sprintf("%s statistics: %d",
+		linkStruct.LongLink,
+		linkStruct.clickStatistics)
+
+	fmt.Fprintln(w, response)
+}
+
+func (s *Server) lookupShortLink(link string) (bool, *SavedLinks) {
+
+	savedLinkStruct, ok := s.DataStore[link]
+
+	if !ok {
+		fmt.Println("Invalid short-link")
+		return false, nil
+	}
+	return true, savedLinkStruct
 }

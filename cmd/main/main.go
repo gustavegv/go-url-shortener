@@ -8,7 +8,7 @@ import (
 
 func main() {
 
-	store := make(map[string]string)
+	store := make(map[string]*routes.SavedLinks)
 
 	server := &routes.Server{DataStore: store}
 
